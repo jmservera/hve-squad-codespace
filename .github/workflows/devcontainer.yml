@@ -1,0 +1,105 @@
+name: Workshop Dev Container
+
+on:
+  pull_request:
+    paths:
+      - .devcontainer/**
+      - .dockerignore
+      - .github/workflows/devcontainer.yml
+      - README.md
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Container image tag to publish
+        required: true
+        default: "0.19.2"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workshop-devcontainer-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Lint scripts and attendee guide
+        run: |
+          shellcheck .devcontainer/*.sh
+          npx --yes markdownlint-cli@0.47.0 --disable MD013 -- README.md
+
+      - name: Build and test the devcontainer
+        uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca
+        with:
+          configFile: .devcontainer/build/devcontainer.json
+          imageName: hve-squad-workshop-validation
+          push: never
+          platform: linux/amd64
+          runCmd: |
+            bash /usr/local/share/hve/setup-plugins.sh
+            bash /usr/local/share/hve/setup-plugins.sh
+
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+
+      - name: Lint scripts and attendee guide
+        run: |
+          shellcheck .devcontainer/*.sh
+          npx --yes markdownlint-cli@0.47.0 --disable MD013 -- README.md
+
+      - name: Select image name and tag
+        id: image
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [[ ! "${IMAGE_TAG}" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            printf 'Invalid container image tag: %s\n' "${IMAGE_TAG}" >&2
+            exit 1
+          fi
+          printf 'name=ghcr.io/%s\n' "${GITHUB_REPOSITORY,,}" >> "${GITHUB_OUTPUT}"
+          printf 'tag=%s\n' "${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sign in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build, test, and publish the devcontainer
+        uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca
+        with:
+          configFile: .devcontainer/build/devcontainer.json
+          imageName: ${{ steps.image.outputs.name }}
+          imageTag: ${{ steps.image.outputs.tag }}
+          push: always
+          platform: linux/amd64
+          runCmd: |
+            bash /usr/local/share/hve/setup-plugins.sh
+            bash /usr/local/share/hve/setup-plugins.sh
+
+      - name: Report published image
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
+        run: |
+          printf "## Published Image\n\n\`%s\`\n" "${IMAGE}" >> "${GITHUB_STEP_SUMMARY}"
