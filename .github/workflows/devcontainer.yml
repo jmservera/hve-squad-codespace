@@ -44,7 +44,6 @@ jobs:
           configFile: .devcontainer/build/devcontainer.json
           imageName: hve-squad-workshop-validation
           push: never
-          platform: linux/amd64
           runCmd: |
             bash /usr/local/share/hve/setup-plugins.sh
             bash /usr/local/share/hve/setup-plugins.sh
@@ -93,7 +92,6 @@ jobs:
           imageName: ${{ steps.image.outputs.name }}
           imageTag: ${{ steps.image.outputs.tag }}
           push: always
-          platform: linux/amd64
           runCmd: |
             bash /usr/local/share/hve/setup-plugins.sh
             bash /usr/local/share/hve/setup-plugins.sh
