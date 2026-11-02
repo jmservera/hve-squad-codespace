@@ -133,8 +133,7 @@ publishing. Pull requests are validated without registry-write permissions.
    personal registry token is needed.
 4. In the package settings, make the image **public** before sharing it
    with attendees who should pull it without registry authentication.
-5. For Codespaces, enable repository prebuilds or switch the event
-   repository to the published-image configuration below. Share its
+5. The default configuration pulls the published image. Share its
    **Code > Codespaces** entry or a `codespaces.new/<owner>/<repository>` link.
 
 This template publishes to `ghcr.io/jmservera/hve-squad-codespace:0.19.2`.
@@ -150,9 +149,8 @@ can use Codespaces.
 
 ## Reuse the Published Image
 
-After publication, replace the `build` and `features` sections in
-[.devcontainer/devcontainer.json](.devcontainer/devcontainer.json) with an
-`image` reference. A consuming repository needs only:
+The default [.devcontainer/devcontainer.json](.devcontainer/devcontainer.json)
+pulls the published image. Another consuming repository needs only:
 
 ```json
 {
@@ -168,9 +166,23 @@ the image's `devcontainer.metadata` label. Do not add the language Features
 again; they are already installed.
 
 For an event freeze, reference the published image's `@sha256:...` digest
-instead of a mutable tag. The feature lockfile pins Feature installation
+instead of a mutable tag. This template already pins the verified image:
+
+```text
+sha256:0cedaf9d1556f2f28354ac995eff2b424bb4b98b98647219248f62b85dc63f00
+```
+
+The feature lockfile pins Feature installation
 code, but `latest` language options still resolve at build time. An image
 digest freezes the complete workshop environment.
+
+The published image passed an anonymous GHCR pull, metadata validation,
+fresh container creation, and repeated plugin setup. Its runtime checks
+reported APM 0.29.0, Copilot CLI 1.0.105, Python 3.12.16, Node.js 26.13.0,
+.NET SDK 10.0.403, and PowerShell 7.6.9. Both Squad 0.19.2 and its Core 3.2.2
+companion were enabled. The
+[publication run](https://github.com/jmservera/hve-squad-codespace/actions/runs/41433117833)
+contains the build and smoke-test evidence.
 
 ## Local Validation and Updates
 
